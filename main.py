@@ -1,25 +1,24 @@
 from flask import Flask, jsonify, request, abort
 from flask_restful import reqparse, fields, Resource, marshal_with
 
-
 from proj import *
 from check_models import Session
 from schemas import UserSchema, WalletsSchema
 from models import User, Wallets, hash_password
 
 
-# validation
-@app.errorhandler(404)
-def not_found(e):
-    return jsonify(error=str(e)), 404
+@auth.verify_password
+def verify_user(username, password):
+    session = Session()
+    user = session.query(User).filter_by(username=username).first()
+    if user and bcrypt.check_password_hash(user.password, password):
+        return user
 
-
-@app.errorhandler(405)
-def wrong(e):
-    return jsonify(error=str(e)), 405
+""""""
 
 
 @app.route('/wallet/<int:user_id>/get_wallet', methods=['GET'])
+@auth.login_required
 def get_wallet(user_id):
     session = Session()
     try:
@@ -49,8 +48,10 @@ def create_wallet():
 
 
 @app.route('/wallet/<int:user_id>/change', methods=['PUT'])
+@auth.login_required
 def update_wallet(user_id):
     session = Session()
+
     try:
         wallet = session.query(Wallets).filter_by(user_id=int(user_id)).one()
     except:
@@ -72,6 +73,7 @@ def update_wallet(user_id):
 
 
 @app.route('/wallet/<int:user_id>/delete', methods=['DELETE'])
+@auth.login_required
 def delete_wallet(user_id):
     session = Session()
     try:
@@ -86,7 +88,9 @@ def delete_wallet(user_id):
     return jsonify({"Success": "Wallet has been deleted"}), 200
 
 
+"""
 @app.route('/user/<int:user_id>/get_user', methods=['GET'])
+@auth.login_required
 def get_user(user_id):
     session = Session()
     try:
@@ -107,7 +111,7 @@ def create_user():
     except:
         return jsonify({"Message": "Invalid input"}), 405
 
-    user.hash_password()
+    #  user.hash_password()
 
     session.add(user)
     session.commit()
@@ -116,6 +120,7 @@ def create_user():
 
 
 @app.route('/user/<int:user_id>/delete_user', methods=['DELETE'])
+@auth.login_required
 def delete_user(user_id):
     session = Session()
     try:
@@ -129,17 +134,7 @@ def delete_user(user_id):
 
     return jsonify({"Success": "User has been deleted"}), 200
 
-
 """
-
-
-@auth.verify_password
-def verify_user(username, password):
-    session = Session()
-    user = session.query(User).filter_by(username=username).first()
-    if user and bcrypt.check_password_hash(user.password, password):
-        return user
-
 
 user_put_args = reqparse.RequestParser()
 user_put_args.add_argument("username", type=str, required=True)
@@ -172,7 +167,7 @@ class UserApi(Resource):
     def post(self):
         session = Session()
         args = user_put_args.parse_args()
-        exist = User(username=args['username'], password=hash_password(args['password']) )
+        exist = User(username=args['username'], password=hash_password(args['password']))
         session.add(exist)
         session.commit()
         return exist, 201
@@ -198,31 +193,99 @@ class UserApi(Resource):
         return exist
 
     @auth.login_required
-    def delete(self, user_id):
+    def delete(self):
         session = Session()
         # result = session.query(User).filter_by(id=user_id).first()
         exist = auth.current_user()
+        if exist:
+            print("User has been deleted")
         if not exist:
             abort(500, message="User doesn't exist, cannot delete")
-        result = session.merge(exist)
+
+        exist = session.merge(exist)
         session.delete(exist)
         session.commit()
         return "User deleted", 204
-#api.add_resource(UseridApi, "/user/<int:user_id>")
+
+
+class UseridApi(Resource):
+    @auth.login_required
+    @marshal_with(user_fields)
+    def get(self, user_id):
+        session = Session()
+        exist = session.query(User).filter_by(user_id=user_id).first()
+        if not exist:
+            abort(404, message="Couldn`t find user with that id")
+        return exist
+
+
+"""
+
+"""
+wallets_put_args = reqparse.RequestParser()
+wallets_put_args.add_argument("user_id", type=int)
+wallets_put_args.add_argument("name", type=str, required=True)
+wallets_put_args.add_argument("uah", type=str, required=True)
+
+wallets_update_args = reqparse.RequestParser()
+wallets_update_args.add_argument("user_id", type=int)
+wallets_update_args.add_argument("name", type=str)
+wallets_update_args.add_argument("uah", type=str)
+# wallets_update_args.add_argument("owner_id", type=int)
+
+
+wallets_fields = {
+    'user_id': fields.Integer,
+    'name': fields.String,
+    'uah': fields.String,
+    # 'owner_id': fields.Integer
+}
+
+
+class WalletsApi(Resource):
+    @auth.login_required
+    @marshal_with(wallets_fields)
+    def get(self):
+        session = Session()
+        user = auth.current_user()
+        user_id = user.user_id
+        exist = session.query(Wallets).filter_by(user_id=user_id).all()
+        if not exist:
+            abort(404, message="No each wallet in database")
+
+        return exist
+
+    @auth.login_required
+    @marshal_with(wallets_fields)
+    def post(self):
+        session = Session()
+        args = wallets_put_args.parse_args()
+        user = auth.current_user()
+        user_id = user.user_id
+
+        wallet = Wallets(user_id=user_id, name=args['name'], uah=args['uah'])
+        session.add(wallet)
+        session.commit()
+        return wallet, 200
+
+
+class WalletsIdApi(Resource):
+    @auth.login_required
+    @marshal_with(wallets_fields)
+    def get(self, user_id):
+        session = Session()
+
+        user = auth.current_user()
+        user_id = user.user_id
+        exist = session.query(User).filter_by(user_id=user_id).first()
+        if not exist:
+            abort(404, message="Couldn`t find wallet with that id")
+        return exist
+
+
+api.add_resource(UseridApi, "/user/<int:user_id>")
 api.add_resource(UserApi, "/user")
-"""
 
-
-"""
-app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
-engine = create_engine('sqlite:///database.db', echo=True, connect_args={'check_same_thread': False})
-api = Api(app)
-bcrypt = Bcrypt(app)
-auth = HTTPBasicAuth()
-Session = sessionmaker(bind=engine)
-Session = scoped_session(Session)
-"""
 
 if __name__ == "__main__":
     app.run(debug=True)

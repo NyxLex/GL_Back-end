@@ -3,7 +3,7 @@ from models import *
 
 Session = sessionmaker(bind=engine)
 session = Session()
-
+"""
 user1 = User(user_id=1, username="Yuriy", password="123")
 wallet1 = Wallets(user_id=1, name="Wallet1", uah=210, owner=user1)
 wallet2 = Wallets(user_id=2, name="Wallet2", uah=240, owner=user1)
@@ -13,7 +13,7 @@ session.add(user1)
 session.add(wallet1)
 session.add(wallet2)
 session.add(transaction)
-
+"""
 session.commit()
 
 session.close()

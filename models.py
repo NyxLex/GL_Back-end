@@ -17,18 +17,14 @@ class Head(Base):
 
 
 def hash_password(password):
-    return generate_password_hash(password).decode('utf-8')
+    return bcrypt.generate_password_hash(password).decode('utf-8')
 
-
-def check_password(self, password):
-    return check_password_hash(self.password, password)
 
 class User(Base):
     __tablename__ = "User"
     user_id = Column("user_id", Integer, primary_key=True)
     username = Column('username', String, unique=True)
-    password = Column("password", String)
-
+    password = Column("password", String, nullable=False)
 
 
 class Wallets(Base):
@@ -53,5 +49,7 @@ class Transactions(Base):
     to_wallet = orm.relationship(
         Wallets, foreign_keys=[to_wallet_wid], backref="transactions_to", lazy="joined"
     )
+
+
 engine = create_engine('sqlite:///database.db', echo=True)
 Base.metadata.create_all(bind=engine)
