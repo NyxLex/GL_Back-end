@@ -1,5 +1,4 @@
-from sqlalchemy.orm import sessionmaker
-from models import *
+from Api.models import *
 
 Session = sessionmaker(bind=engine)
 session = Session()
